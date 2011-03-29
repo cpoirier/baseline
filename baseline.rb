@@ -532,15 +532,14 @@ end
 
 
 # =============================================================================================
-#                                Baseline Modules and Classes
+#                                       Quality Assurance
 # =============================================================================================
-
 
 module Baseline
 
    #
    # A mixin that provides a variety of quality-related routines.
-   
+
    module QualityAssurance
       def self.included( calling_class )
          if !defined?(@@quality_assurance__checks_enabled) then
@@ -554,19 +553,19 @@ module Baseline
       #                                      Runtime Checks
       # =======================================================================================
 
-      
+   
       #
       # Provides a context in which interface contract enforcement and other quality code 
       # can be easily disabled at run-time.  If you pass in a value, it will be passed to
       # your block, and returned after (even if your block wasn't called).
-      
+   
       def check( value = nil )
          return value unless @@quality_assurance__checks_enabled
          yield( value )
          value
       end
 
-      
+   
       #
       # Verifies that object is (one) of the specified type(s).
 
@@ -616,11 +615,11 @@ module Baseline
       def self.disable_checks()
          @@quality_assurance__checks_enabled = false
       end
-      
+   
       def self.checks_disabled?()
          !@@quality_assurance__checks_enabled
       end
-      
+   
 
 
       # =======================================================================================
@@ -629,41 +628,41 @@ module Baseline
 
       #
       # Dumps a message to $stderr, once per message.
-      
+   
       def warn_once( message )
          @@quality_assurance__warnings = {} if !defined?(@@quality_assurance__warnings)
          unless @@quality_assurance__warnings.member?(message)
             warn( message )
          end
       end
-      
-      
+   
+   
       #
       # Dumps a message to $stderr.
-      
+   
       def warn( message )
          $stderr.puts( (message =~ /^[A-Z]+: / ? "" : "WARNING: ") + message )
          @@quality_assurance__warnings = {} if !defined?(@@quality_assurance__warnings)
          @@quality_assurance__warnings[message] = true
       end
-      
-      
+   
+   
       def self.disable_warnings()
          @@quality_assurance__warnings_enabled = false
       end
-      
+   
       def self.warnings_disabled?()
          !@@quality_assurance__warnings_enabled
       end
-      
-      
+   
+   
 
 
       # =======================================================================================
       #                                       Assertions
       # =======================================================================================
 
-      
+   
       #
       # Raises an AssertionFailure if the condition is false.
 
@@ -671,17 +670,17 @@ module Baseline
          fail( message, data, &block ) unless condition
          true
       end
-      
-      
+   
+   
       #
       # Raises an AssertionFailure outright.
-      
+   
       def fail( message = "this should not happen", data = nil, &block )
          data = block.call() if block
          raise AssertionFailure.new(message, data)
       end
-      
-      
+   
+   
       #
       # Raises an AssertionFailure indicating a method should have been overrided.
 
@@ -693,13 +692,13 @@ module Baseline
 
       #
       # Asserts that condition is true, but still outputs the message.
-      
+   
       def assert_and_warn_once( condition, message, data = nil, &block )
          assert( condition, message, data, &block )
          warn_once( message )
       end
-      
-      
+   
+   
       #
       # Catches any exceptions raised in your block and returns error_return instead.  Returns
       # your block's return value otherwise.
@@ -711,11 +710,11 @@ module Baseline
             return error_return
          end
       end
-      
+   
       #
       # Adds data to any Bug thrown within the block.  Note: annotations will not
       # overwrite existing data (which is probably what you want).
-            
+         
       def annotate_errors( data )
          begin
             yield()
@@ -725,14 +724,11 @@ module Baseline
          end
       end
 
-
-
    end # QualityAssurance
-   
-   
+
    #
    # A base exception class for detected bugs.
-   
+
    class Bug < ScriptError
       attr_reader :data
 
@@ -764,7 +760,78 @@ module Baseline
    class AssertionFailure < Bug; end
    class TypeCheckFailure < Bug; end
 
+end # Baseline
 
+
+
+
+# =============================================================================================
+#                                        Component Locator
+# =============================================================================================
+
+module Baseline
+
+   #
+   # Given the __FILE__ path to the master file for the library, sets up a locator capable 
+   # of converting file- and system-relative paths to absolute system paths.  For instance,
+   # given the following structure:
+   #
+   # library.rb
+   # library/
+   #   a_file.rb
+   #   subdir/
+   #    b_file.rb
+   #    c_file.rb
+   #
+   # ComponentLocator.new( "/full/path/to/library.rb" ) will be able to locate "library/a_file.rb" from
+   # anywhere, and "b_file.rb" from inside "c_file.rb".
+   #
+   # If you wish to wrap the Locator object in your own function, add 1 to levels_back for each wrapper.
+
+   class ComponentLocator
+
+      def initialize( master_path, levels_back = 1 )
+         @system_name = File.basename(__FILE__, ".rb")
+         @system_base = File.expand_path(File.dirname(__FILE__))
+         @levels_back = levels_back
+      end
+
+
+      #
+      # Calculates the absolute path to a file within the system.  For paths beginning with the
+      # library base, calculation is relative to the system home directory, unless allow_from_root is cleared.  
+      # Otherwise, the path is calculated relative the caller's directory.
+
+      def locate( path, allow_from_root = true )
+         File.expand_path(path, allow_from_root && system_relative?(path) ? @system_base : find_caller_path())
+      end
+
+
+   private   
+      def system_relative?(path)
+         return false unless path[0..(@system_name.length - 1)] == @system_name
+         return path[@system_name.length, File::SEPARATOR.length] == File::SEPARATOR
+      end
+
+      #
+      # Figures out the file path of the script in which we were called.  We'll search the stack
+      # for "locate" and step up the requisite levels from there.
+
+      def find_caller_path()
+         stack = caller(0)
+         until stack.empty?
+            line = stack.shift
+            break if line =~ /locate.$/
+         end
+
+         (@levels_back - 1).times { stack.shift }
+
+         abort "can't find the caller's path in the stack" if stack.empty?
+
+         return File.dirname(File.expand_path(stack.shift.split(":")[0], Dir.pwd()))
+      end
+   end # ComponentLocator
+   
 end # Baseline
 
 
