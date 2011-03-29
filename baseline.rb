@@ -56,7 +56,7 @@ end
 #
 # Defines some antonyms for nil?
 
-if !Object.defined?(:exists?) then
+if !Object.method_defined?(:exists?) then
    class Object
       def exists?()
          true
