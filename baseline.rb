@@ -345,14 +345,14 @@ class Exception
       #
       # Generates a nice-looking, informative error report for the exception.
    
-      def generate_report( stream = $stderr, backtrace_levels = 15 )
+      def generate_report( relative_to = nil, stream = $stderr, backtrace_levels = 15, skip_qa_routines = true )
          if ENV.member?("TM_LINE_NUMBER") then 
             print_data( stream ) if respond_to?("print_data")
             raise
          else
             heading   = "CAUGHT #{self.class.name}"
             message   = failsafe_message
-            backtrace = relative_backtrace(Schemaform.locate("schemaform/.."))
+            backtrace = relative_backtrace(relative_to, skip_qa_routines)
          
             stream.puts ("=" * message.length)
             stream.puts heading
@@ -485,6 +485,31 @@ class Array
    
       def top()
          return self[-1]
+      end
+   end
+   
+end
+
+
+
+
+# =============================================================================================
+#                                         String Extensions
+# =============================================================================================
+
+class String
+   
+   #===========================================================================================
+   if !method_defined?(:starts_with?) then
+      def starts_with?( string )
+         start_with?(string)
+      end
+   end
+   
+   #===========================================================================================
+   if !method_defined?(:ends_with?) then
+      def ends_with?( string )
+         end_with?(string)
       end
    end
    
