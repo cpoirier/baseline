@@ -925,7 +925,7 @@ module Baseline
       # string only. If you need it to match the full width, set +full_width+ to true.
 
       def Wildcard.compile( expression, match_end = true, match_beginning = false, case_insensitive = true )
-         return Wildcard.new(expression, full_width, case_insensitive)
+         return Wildcard.new(expression, match_end, match_beginning, case_insensitive)
       end
 
 
@@ -978,8 +978,14 @@ module Baseline
          @case_insensitive
       end
 
-      def match( string )
-         @compiled.match(string)
+      def match( string, store = false )
+         m = @compiled.match(string)
+         Thread.current[:baseline_wildcard_last_match] = m if store
+         m
+      end
+      
+      def last_match()
+         Thread.current[:baseline_wildcard_last_match]
       end
 
       def source()
