@@ -492,25 +492,47 @@ end
 
 
 
+# =============================================================================================
+#                                     Enumerable Extensions
+# =============================================================================================
+
+module Enumerable
+
+   #===========================================================================================
+   if !method_defined?(:select_first) then
+
+      # 
+      # Returns the last element from this list, or nil.
+   
+      def select_first()
+         each do |v|
+            return v if yield(v)
+         end
+         nil
+      end
+   end
+
+end
+
+
+
 
 # =============================================================================================
-#                                         String Extensions
+#                                      String Extensions
 # =============================================================================================
 
 class String
    
-   #===========================================================================================
    if !method_defined?(:starts_with?) then
-      def starts_with?( string )
-         start_with?(string)
-      end
+      alias :starts_with? :start_with?
    end
    
-   #===========================================================================================
    if !method_defined?(:ends_with?) then
-      def ends_with?( string )
-         end_with?(string)
-      end
+      alias :ends_with? :end_with?
+   end
+   
+   if !method_defined?(:includes?) then
+      alias :includes? :include?
    end
    
 end
