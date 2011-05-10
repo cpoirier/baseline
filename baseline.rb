@@ -725,7 +725,7 @@ module Baseline
       #
       # Raises an AssertionFailure if the condition is false.
 
-      def assert( condition, message, data = nil, &block )
+      def assert( condition, message = "this should not happen", data = nil, &block )
          fail( message, data, &block ) unless condition
          true
       end
