@@ -555,8 +555,6 @@ end
 #                                          Set Extensions
 # =============================================================================================
 
-require 'set'
-
 #
 # Note: we don't explicitly require 'set' beforehand, so this is at worst harmless.
 
