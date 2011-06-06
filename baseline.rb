@@ -748,7 +748,7 @@ module Baseline
       # Dumps a debug message to $stderr.
       
       def debug( message )
-         # $stderr.puts( (message =~ /^[A-Z]+: / ? "" : "DEBUG: ") + message )
+         $stderr.puts( (message =~ /^[A-Z]+: / ? "" : "DEBUG: ") + message )
       end
    
    
@@ -783,6 +783,18 @@ module Baseline
       def fail_unless_overridden( object, method )
          method = object.instance_class.instance_method(method) unless method.is_a?(Method)
          fail( "You must override: #{method.owner.name}.#{method.name} in #{object.class.name}" )
+      end
+      
+      
+      #
+      # Raises an AssertionFailure indicating a method is incomplete.
+      
+      def fail_todo( message = nil )
+         if message then
+            fail("TODO: #{message}")
+         else
+            fail("TODO")
+         end
       end
       
       
