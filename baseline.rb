@@ -4,7 +4,7 @@
 # Ruby extensions and support classes for a better world.
 #
 # [Website]   http://github.com/cpoirier/baseline
-# [Copyright] Copyright 2004-2010 Chris Poirier (this file)
+# [Copyright] Copyright 2004-2011 Chris Poirier (this file)
 # [License]   Licensed under the Apache License, Version 2.0 (the "License");
 #             you may not use this file except in compliance with the License.
 #             You may obtain a copy of the License at
@@ -79,19 +79,25 @@ end
 # Ensures all objects can be converted to arrays. Individual objects are converted to
 # a list of one; nil is converted to an empty list.
 
-if !NilClass.method_defined?(:to_a) then
+if !NilClass.method_defined?(:to_array) then
    class NilClass
-      def to_a()
+      def to_array()
          return []
       end
    end
 end
 
-if !Object.method_defined?(:to_a) then
+if !Object.method_defined?(:to_array) then
    class Object
-      def to_a()
+      def to_array()
          return [self]
       end
+   end
+end
+
+if !Array.method_defined?(:to_array) then
+   class Array
+      alias to_array to_a
    end
 end
 
@@ -115,6 +121,15 @@ if !Object.method_defined?(:each) then
    end
 end
    
+
+class ArrayHash < Hash
+   def self.new()
+      super do |hash, key|
+         hash[key] = []
+      end
+   end
+end
+
 
 
 
@@ -193,7 +208,8 @@ class Object
       # routine will +fail()+.
 
       def send_specialized( name, determinant, *parameters, &fallback )
-         current_class = determinant.is_a?(Class) ? determinant : determinant.class
+         determinant_class = determinant.is_a?(Class) ? determinant : determinant.class
+         current_class = determinant_class
          while current_class
             specialized = current_class.specialize_method_name(name)
             return self.send( specialized, determinant, *parameters ) if self.responds_to?(specialized)
@@ -203,7 +219,7 @@ class Object
          if fallback then
             return fallback.call(determinant, *parameters)
          else
-            fail "unable to find specialization of #{name} for #{current_class.name}"
+            fail "unable to find specialization of #{name} for #{determinant_class.name}"
          end
       end
       
@@ -297,6 +313,28 @@ end
 
 class Exception
 
+   #
+   # Defines a simple Exception class that takes a standard parameter list and provides
+   # retrievers to access them.
+      
+   def self.define( *parameters )
+      Class.new(self) do
+         @@defined_subclass_field_lists[self] = parameters
+      
+         define_method(:initialize) do |*values|
+            super()
+            @@defined_subclass_field_lists[self.class].each{|name| instance_variable_set("@#{name}".intern, values.shift)}
+         end
+
+         parameters.each do |name|
+            attr_reader "#{name}".intern
+         end
+      end         
+   end
+
+   @@defined_subclass_field_lists = {}
+   
+
    #===========================================================================================
    if !method_defined?(:failsafe_message) then
       
@@ -375,6 +413,7 @@ end
 
 
 
+
 # =============================================================================================
 #                                         Array Extensions
 # =============================================================================================
@@ -410,25 +449,6 @@ class Array
          end
       
          result
-      end
-   end
-   
-   
-   #===========================================================================================
-   if !method_defined?(:accumulate) then
-      
-      #
-      # Appends your value to a list at the specified index, creating an array at that index
-      # if not present.
-   
-      def accumulate( key, value )
-         if self[key].nil? then
-            self[key] = []
-         elsif !self[key].is_an?(Array) then
-            self[key] = [self[key]]
-         end
-
-         self[key] << value
       end
    end
    
@@ -517,6 +537,36 @@ module Enumerable
       end
    end
 
+   #===========================================================================================
+   if !method_defined?(:accumulate) then
+      
+      #
+      # Appends your value to a list at the specified index, creating an array at that index
+      # if not present.
+   
+      def accumulate( key, value )
+         if self[key].nil? then
+            self[key] = []
+         elsif !self[key].is_an?(Array) then
+            self[key] = [self[key]]
+         end
+
+         self[key] << value
+      end
+   end
+   
+   #===========================================================================================
+   if !method_defined?(:not_empty?) then
+      
+      #
+      # Prettier version of !enumerable.empty?
+   
+      def not_empty?()
+         !empty?
+      end
+   end
+   
+   
 end
 
 
@@ -543,6 +593,12 @@ class String
    if !method_defined?(:identifier_case) then
       def identifier_case()
          self.gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').gsub(/([a-z\d])([A-Z])/,'\1_\2').tr("-", "_").downcase
+      end
+   end
+   
+   if !method_defined?(:camel_case) then
+      def camel_case()
+         identifier_case().gsub(/($|_)./,$2.upcase)
       end
    end
    
@@ -609,6 +665,60 @@ class Thread
       Thread.current.key?(name)
    end
 end
+
+
+
+# =============================================================================================
+#                                        Time Extensions
+# =============================================================================================
+
+class Time
+   
+   #
+   # Returns a Time far in the future, or offset from now.
+   
+   def self.future( offsets = {} )
+      if offsets.empty? then
+         Time.utc(9999, 12, 31, 23, 59, 59, 999999)
+      else
+         days    = offsets.fetch(:days   , offsets.fetch(:day   , 0))
+         hours   = offsets.fetch(:hours  , offsets.fetch(:hour  , 0))
+         minutes = offsets.fetch(:minutes, offsets.fetch(:minute, 0))
+         seconds = offsets.fetch(:seconds, offsets.fetch(:second, 0))
+         
+         Time.now() + ((((((days * 24) + hours) * 60) + minutes) * 60) + seconds)
+      end
+   end
+
+
+   #
+   # Returns a Time far in the past, or offset from now.
+   
+   def self.past( offsets = {} )
+      if offsets.empty? then
+         Time.utc(200,1,1,0,0,0)
+      else
+         days    = offsets.fetch(:days   , offsets.fetch(:day   , 0))
+         hours   = offsets.fetch(:hours  , offsets.fetch(:hour  , 0))
+         minutes = offsets.fetch(:minutes, offsets.fetch(:minute, 0))
+         seconds = offsets.fetch(:seconds, offsets.fetch(:second, 0))
+         
+         Time.now() - ((((((days * 24) + hours) * 60) + minutes) * 60) + seconds)
+      end
+   end
+   
+   
+   #
+   # Measures the duration of the block you pass.
+   
+   def self.measure()
+      start_time = Time.now()
+      yield
+      Time.now() - start_time
+   end
+
+end
+
 
 
 
@@ -717,19 +827,29 @@ module Baseline
       #
       # Dumps a message to $stderr, once per message.
    
-      def warn_once( message )
+      def warn_once( message, label = "WARNING", separator = ": " )
          @@quality_assurance__warnings = {} if !defined?(@@quality_assurance__warnings)
          unless @@quality_assurance__warnings.member?(message)
-            warn( message )
+            warn( message, label, separator )
          end
+      end
+
+      
+      #
+      # Similar to warn_once(), but prepends "TODO: " when displaying the mssage.
+      
+      def warn_todo( message )
+         warn_once(message, "TODO")
       end
    
    
       #
       # Dumps a message to $stderr.
    
-      def warn( message )
-         $stderr.puts( (message =~ /^[A-Z]+: / ? "" : "WARNING: ") + message )
+      def warn( message, label = "WARNING", separator = ": " )
+         label = separator = "" if label == "WARNING" && separator == ": " && message =~ /^[A-Z]+: /
+
+         $stderr.puts "#{label}#{separator}#{message}"
          @@quality_assurance__warnings = {} if !defined?(@@quality_assurance__warnings)
          @@quality_assurance__warnings[message] = true
       end
@@ -781,8 +901,14 @@ module Baseline
       # Raises an AssertionFailure indicating a method should have been overrided.
 
       def fail_unless_overridden( object, method )
-         method = object.instance_class.instance_method(method) unless method.is_a?(Method)
-         fail( "You must override: #{method.owner.name}.#{method.name} in #{object.class.name}" )
+         if object.is_a?(Class) then
+            method = object.instance_class.instance_method(method) unless method.is_a?(Method)
+            warn_todo("fix class name get in fail_unless_overridden()")
+            fail("You must override: #{method.owner.inspect}.#{method.name} in #{object.name}")
+         else
+            method = object.instance_class.instance_method(method) unless method.is_a?(Method)
+            fail("You must override: #{method.owner.name}.#{method.name} in #{object.class.name}")
+         end
       end
       
       
