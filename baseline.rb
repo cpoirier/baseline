@@ -197,7 +197,7 @@ class Object
       #    <object:SomeClass>.specialize("process") => :process_some_class
 
       def specialize_method_name( name )
-         return "#{name}#{(is_a?(Class) ? self : self.class).name.split("::")[-1].gsub(/[A-Z]/){|s| "_#{s.downcase}"}}".intern
+         return "#{name}#{(is_a?(Class) ? self : self.class).unqualified_name.gsub(/[A-Z]/){|s| "_#{s.downcase}"}}".intern
       end
 
 
@@ -230,10 +230,52 @@ end
 
 
 # =============================================================================================
+#                                       Module Extensions
+# =============================================================================================
+
+class Module
+   
+   #===========================================================================================
+   if !method_defined?(:unqualified_name) then
+      
+      #
+      # Returns the unqualified class name.
+      
+      def unqualified_name()
+         @unqualified_name ||= self.name.split("::").last
+      end
+   end
+   
+   
+end
+
+
+# =============================================================================================
 #                                        Class Extensions
 # =============================================================================================
 
 class Class
+   
+   #===========================================================================================
+   if !method_defined?(:namespace_module) then
+      
+      #
+      # Returns the namespace in which the class is defined.
+      
+      def namespace_module()
+         unless defined?(@namespace_module)
+            if marker = self.name.rindex("::") then
+               namespace_name = self.name[0..(marker-1)]
+               @namespace_module = eval(namespace_name)
+            else
+               @namespace_module = nil
+            end
+         end
+         
+         @namespace_module
+      end
+   end
+   
    
    #===========================================================================================
    if !method_defined?(:define_subclass) then
@@ -935,12 +977,17 @@ module Baseline
    
       #
       # Catches any exceptions raised in your block and returns error_return instead.  Returns
-      # your block's return value otherwise.
+      # your block's return value otherwise. You can pass a list of exceptions that should 
+      # bypass the mechanism -- it's generally a good idea to let syntax and similar errors through.
 
-      def ignore_errors( error_return = nil )
+      def ignore_errors( error_return = nil, unfiltered_errors = [NoMethodError] )
          begin
             return yield()
-         rescue
+         rescue Exception => e
+            unfiltered_errors.each do |clas|
+               raise e if e.is_a?(clas)
+            end
+            
             return error_return
          end
       end
