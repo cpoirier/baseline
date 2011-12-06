@@ -37,6 +37,20 @@ if !Object.method_defined?(:instance_class) then
    end
 end
 
+
+#
+# Returns the Method object for the caller of this routine.
+
+if !Object.method_defined?(:caller_method) then
+   class Object
+      def caller_method(level = 2)
+         name = caller(level).first.sub(/^.*in ./, "").sub(/.$/, "").intern
+         instance_class.instance_method(name) 
+      end
+   end
+end
+
+
 #
 # Defines plurally-named synonyms for some singularly-named routines.
 
@@ -219,7 +233,7 @@ class Object
          if fallback then
             return fallback.call(determinant, *parameters)
          else
-            fail "unable to find specialization of #{name} for #{determinant_class.name}"
+            raise Baseline::SpecializationFailure.new("unable to find specialization of #{name} for #{determinant_class.name}", :determinant => determinant)
          end
       end
       
@@ -940,29 +954,33 @@ module Baseline
    
    
       #
-      # Raises an AssertionFailure indicating a method should have been overrided.
-
-      def fail_unless_overridden( object, method )
-         if object.is_a?(Class) then
-            method = object.instance_class.instance_method(method) unless method.is_a?(Method)
-            warn_todo("fix class name get in fail_unless_overridden()")
-            fail("You must override: #{method.owner.inspect}.#{method.name} in #{object.name}")
-         else
-            method = object.instance_class.instance_method(method) unless method.is_a?(Method)
-            fail("You must override: #{method.owner.name}.#{method.name} in #{object.class.name}")
-         end
+      # Raises an AssertionFailure indicating a method is incomplete.
+      
+      def fail_todo( message = nil )
+         fail("TODO" + (message ? ": #{message}" : ""))
       end
       
       
       #
-      # Raises an AssertionFailure indicating a method is incomplete.
+      # Raises an AssertionFailure indicating a method should have been overrided.
+
+      def fail_unless_overridden()
+         context = self.is_a?(Class) ? self : self.class
+         method  = self.caller_method()
+         
+         fail("You must override: #{method.owner.inspect}.#{method.name} in #{context.name}")
+      end
       
-      def fail_todo( message = nil )
-         if message then
-            fail("TODO: #{message}")
-         else
-            fail("TODO")
-         end
+      
+      #
+      # Raises an AssertionFailure indicating a method is obsolete and the call to it should
+      # be removed.
+      
+      def fail_obsolete()
+         context = self.is_a?(Class) ? self : self.class
+         method  = self.caller_method()
+         
+         fail("#{method.owner.inspect}.#{method.name} is OBSOLETE and can no longer be used.")
       end
       
       
@@ -1040,6 +1058,7 @@ module Baseline
 
    class AssertionFailure < Bug; end
    class TypeCheckFailure < Bug; end
+   class SpecializationFailure < Bug ; end
 
 end # Baseline
 
