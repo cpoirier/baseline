@@ -522,8 +522,11 @@ class Array
       
          send(iterator) do |*data|
             key = block_given? ? yield( *data ) : data.last
-            if value == :value_is_element then
+            case value
+            when :value_is_element
                hash[key] = data.last
+            when :value_is_key
+               hash[data.last] = key
             else
                hash[key] = value
             end
