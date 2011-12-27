@@ -572,6 +572,49 @@ class Array
       end
    end
    
+
+   #===========================================================================================
+   if !method_defined?(:sort_in) then
+
+      # 
+      # Inserts an element into the sorted list, optionally calling your block to determine
+      # sort order.
+   
+      def sort_in( value, allow_duplicates = true, &block )
+         block = lambda{|a, b| a <=> b} if block.nil?
+
+         if empty? || block.call(value, last) == 1 then
+            self << value
+         elsif block.call(value, first) == -1 then
+            unshift(value)
+         else
+            
+            #
+            # Binary search to find the index at which to insert.
+            
+            a = 0
+            z = length - 1
+
+            while a < z
+               i = ((z - a) / 2).floor() + a
+               
+               case block.call(value, self[i])
+               when 0
+                  a = i 
+                  z = i
+               when 1
+                  a = i + (a == i ? 1 : 0)
+               when -1
+                  z = i - (z == i ? 1 : 0)
+               end
+            end
+
+            if allow_duplicates || self[a] != value then
+               insert(a, value) 
+            end
+         end
+      end
+   end
 end
 
 
