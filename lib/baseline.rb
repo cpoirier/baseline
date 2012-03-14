@@ -4,7 +4,7 @@
 # Ruby extensions and support classes for a better world.
 #
 # [Website]   http://github.com/cpoirier/baseline
-# [Copyright] Copyright 2004-2011 Chris Poirier (this file)
+# [Copyright] Copyright 2004-2012 Chris Poirier (this file)
 # [License]   Licensed under the Apache License, Version 2.0 (the "License");
 #             you may not use this file except in compliance with the License.
 #             You may obtain a copy of the License at
@@ -85,6 +85,10 @@ if !Object.method_defined?(:exists?) then
       def exists?()
          false
       end
+      
+      def empty?()
+         true
+      end
    end
 end
 
@@ -131,6 +135,22 @@ if !Object.method_defined?(:each) then
    class Object
       def each()
          yield( self ) 
+      end
+   end
+end
+
+
+#
+# Provide an alternative to tap() that doesn't call the block on nil.
+
+if !Object.method_defined?(:use) then
+   class Object
+      alias use tap
+   end
+   
+   class NilClass
+      def use()
+         return self
       end
    end
 end
@@ -1056,11 +1076,11 @@ module Baseline
       # Raises an AssertionFailure indicating a method is obsolete and the call to it should
       # be removed.
       
-      def fail_obsolete()
+      def fail_obsolete( details = nil )
          context = self.is_a?(Class) ? self : self.class
          method  = self.caller_method()
          
-         fail("#{method.owner.inspect}.#{method.name} is OBSOLETE and can no longer be used.")
+         fail("#{method.owner.inspect}.#{method.name} is OBSOLETE and can no longer be used" + (details ? ": #{details}" : "."))
       end
       
       
@@ -1442,3 +1462,12 @@ module Baseline
 
 end # Baseline
 
+
+#
+# Ensure we are running in a sane encoding.
+
+if defined?(Encoding) then
+   if Encoding.default_internal.nil? then
+      Encoding.default_internal = Encoding.default_external
+   end
+end
